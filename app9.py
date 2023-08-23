@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
+import geopandas as gpd
 
 st.set_option('deprecation.showPyplotGlobalUse', False)
 
@@ -118,12 +119,66 @@ def model_diffusion(Initial1,Initial2,epsilon, r_1, r_2, K_R, alpha, beta_1, bet
  
     max_infection_zone1 = np.sum(u[:, 2])+np.sum(u[:, 3])+np.sum(u[:, 6])+np.sum(u[:, 7])
  
-    max_infection_zone2 = np.sum(u[:, 10])+np.sum(u[:, 11])+np.sum(u[:, 14])+np.sum(u[:, 15])
+    max_infection_zone2 = np.sum(u[:, 10])+np.sum(u[:, 11])+np.sum(u[:,14])+np.sum(u[:,15])
     #st.write("Maximum d'infections dans la zone 1 :", max_infection_zone1)
-    #st.write("Maximum d'infections dans la zone 2 :", max_infection_zone2)
+    #st.write("Maximum d'infections dans la zone 1 :", max_infection_zone2)
 
 
     most_affected_zone = 1 if max_infection_zone2 > max_infection_zone1 else 2
+ 
+
+    # Chargement du fichier Shapefile avec GeoPandas
+    @st.cache_data
+    def load_shapefile(shapefile_path):
+        return gpd.read_file(shapefile_path)
+
+    shapefile_path = "SEN_adm3.shx"
+    gdf = load_shapefile(shapefile_path)
+
+    # Liste des arrondissements uniques dans le jeu de données de Thies
+    thies_arrondissements = gdf[gdf['NAME_1'] == 'Thiès']['NAME_3'].unique()
+
+    # Sélection des deux arrondissements à afficher
+    selected_arrondissements = st.selectbox("Sélectionnez le premier arrondissement", thies_arrondissements), st.selectbox("Sélectionnez le   deuxième arrondissement", thies_arrondissements)
+
+    # Création de la carte avec GeoPandas
+    st.title("Carte des arrondissements de Thies")
+    fig, ax = plt.subplots()
+    gdf[gdf['NAME_1'] == 'Thiès'].plot(ax=ax, color='gray')  # Rendre les autres arrondissements en gris par défaut
+
+    # Filtrer les données pour les arrondissements sélectionnés
+    arrondissement1_data = gdf[(gdf['NAME_1'] == 'Thiès') & (gdf['NAME_3'] == selected_arrondissements[0])]
+    arrondissement2_data = gdf[(gdf['NAME_1'] == 'Thiès') & (gdf['NAME_3'] == selected_arrondissements[1])]
+
+    # Couleurs en fonction de la zone la plus touchée
+    zone_color1 = 'blue' if most_affected_zone == 1 else 'red'
+    zone_color2 = 'red' if most_affected_zone == 1 else 'blue'
+
+    # Plot des arrondissements sélectionnés avec les couleurs appropriées
+    arrondissement1_data.plot(ax=ax, color=zone_color1 )
+    arrondissement2_data.plot(ax=ax, color=zone_color2 )
+    
+    
+    # Ajouter les noms des arrondissements avec les couleurs correspondantes
+    for arrondissement, color in [(selected_arrondissements[0], zone_color1), (selected_arrondissements[1], zone_color2)]:
+        arrondissement_data = gdf[(gdf['NAME_1'] == 'Thiès') & (gdf['NAME_3'] == arrondissement)]
+        x = arrondissement_data.geometry.centroid.x.values[0]
+        y = arrondissement_data.geometry.centroid.y.values[0]
+        ax.text(x, y, arrondissement, fontsize=9, color="green")
+
+    # Ajouter une légende
+    ax.legend(loc='upper left')
+ 
+ 
+     
+     
+    st.pyplot(fig)
+
+ 
+ 
+
+ 
+    st.write('NB: La zone colorée en rouge est plus touchée par l infection des puces sur les rongeurs')
 
     # Création de la carte avec Folium
     #m = folium.Map(location=[48.8566, 2.3522], zoom_start=6)
@@ -185,8 +240,8 @@ def model_diffusion(Initial1,Initial2,epsilon, r_1, r_2, K_R, alpha, beta_1, bet
 
     
     # Couleurs en fonction de la zone la plus touchée
-    color_zone1 = 'blue' if most_affected_zone == 1 else 'red'
-    color_zone2 = 'red' if most_affected_zone == 1 else 'blue'
+    color_zone1 = 'red' if most_affected_zone == 1 else 'blue'
+    color_zone2 = 'blue' if most_affected_zone == 1 else 'red'
  
  
     # Initialiser la carte Folium
@@ -266,7 +321,7 @@ def model_diffusion(Initial1,Initial2,epsilon, r_1, r_2, K_R, alpha, beta_1, bet
     else:
         st.write('veuillez choisir deux zones differentes')    
         
-    st.write("la zone la plus iinfectée est colorée en rouge")      
+          
   
 
 def main():
@@ -444,4 +499,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
